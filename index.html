@@ -1,0 +1,2717 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>净水租赁维保管理系统</title>
+  <!-- Tailwind CSS v3 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- SheetJS for Excel export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <!-- Tailwind 配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3B82F6',
+            secondary: '#60A5FA',
+            success: '#10B981',
+            warning: '#F59E0B',
+            danger: '#EF4444',
+            dark: '#1F2937',
+            light: '#F3F4F6',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            card: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .glass-effect {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+      
+      .card-hover {
+        transition: all 0.3s ease;
+      }
+      
+      .card-hover:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      }
+      
+      .status-badge {
+        @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+      }
+      
+      .status-normal {
+        @apply bg-green-100 text-green-800;
+      }
+      
+      .status-warning {
+        @apply bg-yellow-100 text-yellow-800;
+      }
+      
+      .status-expired {
+        @apply bg-red-100 text-red-800;
+      }
+      
+      .fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .slide-in {
+        animation: slideIn 0.3s ease-in-out;
+      }
+      
+      @keyframes slideIn {
+        from { transform: translateX(-100%); }
+        to { transform: translateX(0); }
+      }
+      
+      .pulse {
+        animation: pulse 2s infinite;
+      }
+      
+      @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col">
+  <!-- 顶部导航栏 -->
+  <header class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <h1 class="text-xl font-bold text-primary flex items-center">
+        <i class="fa fa-tint mr-2"></i>
+        <span>净水租赁维保管理系统</span>
+      </h1>
+      <div class="flex items-center space-x-4">
+        <button id="backupBtn" class="text-gray-600 hover:text-primary">
+          <i class="fa fa-cloud-upload"></i>
+        </button>
+        <button id="exportBtn" class="text-gray-600 hover:text-primary">
+          <i class="fa fa-download"></i>
+        </button>
+        <button id="settingsBtn" class="text-gray-600 hover:text-primary">
+          <i class="fa fa-cog"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容区 -->
+  <main class="flex-grow container mx-auto px-4 py-6">
+    <!-- 页面内容将通过JavaScript动态加载 -->
+    <div id="pageContent" class="fade-in">
+      <!-- 首页内容 -->
+      <div id="homePage">
+        <!-- 状态概览卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div class="bg-white rounded-lg shadow-card p-6 card-hover">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-gray-500 font-medium">设备总数</p>
+                <h3 id="totalDevices" class="text-3xl font-bold mt-1">0</h3>
+              </div>
+              <div class="bg-blue-100 p-3 rounded-full">
+                <i class="fa fa-microchip text-primary text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-4 text-sm text-gray-500">
+              <span id="deviceTrend">+0% 较上月</span>
+            </div>
+          </div>
+          
+          <div class="bg-white rounded-lg shadow-card p-6 card-hover">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-gray-500 font-medium">即将到期</p>
+                <h3 id="warningDevices" class="text-3xl font-bold mt-1 text-warning">0</h3>
+              </div>
+              <div class="bg-yellow-100 p-3 rounded-full">
+                <i class="fa fa-exclamation-triangle text-warning text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-4 text-sm text-gray-500">
+              <span id="warningTrend">3天内需要处理</span>
+            </div>
+          </div>
+          
+          <div class="bg-white rounded-lg shadow-card p-6 card-hover">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-gray-500 font-medium">已过期</p>
+                <h3 id="expiredDevices" class="text-3xl font-bold mt-1 text-danger">0</h3>
+              </div>
+              <div class="bg-red-100 p-3 rounded-full">
+                <i class="fa fa-times-circle text-danger text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-4 text-sm text-gray-500">
+              <span id="expiredTrend">需要立即处理</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 今日提醒 -->
+        <div class="bg-white rounded-lg shadow-card p-6 mb-8">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-bell text-primary mr-2"></i>
+            今日提醒
+          </h2>
+          <div id="todayReminders" class="space-y-4">
+            <div class="text-center text-gray-500 py-8">
+              <i class="fa fa-check-circle text-4xl mb-3 text-green-500"></i>
+              <p>今日暂无待办事项</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 待办事项列表 -->
+        <div class="bg-white rounded-lg shadow-card p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold flex items-center">
+              <i class="fa fa-tasks text-primary mr-2"></i>
+              待办事项
+            </h2>
+            <div class="flex space-x-2">
+              <button class="filter-btn active px-3 py-1 text-sm rounded-full bg-primary text-white" data-filter="all">全部</button>
+              <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-200 text-gray-700" data-filter="expired">已过期</button>
+              <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-200 text-gray-700" data-filter="warning">即将到期</button>
+            </div>
+          </div>
+          <div id="todoList" class="space-y-4">
+            <div class="text-center text-gray-500 py-8">
+              <i class="fa fa-list-alt text-4xl mb-3 text-gray-300"></i>
+              <p>暂无待办事项</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 设备列表页 -->
+      <div id="devicesPage" class="hidden">
+        <div class="bg-white rounded-lg shadow-card p-6 mb-6">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+            <h2 class="text-lg font-semibold flex items-center">
+              <i class="fa fa-list text-primary mr-2"></i>
+              设备列表
+            </h2>
+            <div class="flex flex-col md:flex-row gap-3">
+              <div class="relative">
+                <input type="text" id="searchInput" placeholder="搜索设备编号或客户姓名" 
+                       class="w-full md:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <i class="fa fa-search absolute left-3 top-3 text-gray-400"></i>
+              </div>
+              <button id="importBtn" class="flex items-center justify-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                <i class="fa fa-upload mr-2"></i>
+                批量导入
+              </button>
+              <button id="addDeviceBtn" class="flex items-center justify-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                <i class="fa fa-plus mr-2"></i>
+                新增设备
+              </button>
+            </div>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr>
+                  <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">设备编号</th>
+                  <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">客户姓名</th>
+                  <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">安装地址</th>
+                  <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">维保到期</th>
+                  <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">租金到期</th>
+                  <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                  <th class="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+              </thead>
+              <tbody id="devicesTableBody" class="bg-white divide-y divide-gray-200">
+                <!-- 设备列表将通过JavaScript动态生成 -->
+                <tr>
+                  <td colspan="7" class="px-6 py-10 text-center text-gray-500">
+                    <i class="fa fa-info-circle text-2xl mb-2"></i>
+                    <p>暂无设备数据，请添加设备</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- 分页控件 -->
+          <div id="pagination" class="flex justify-between items-center mt-6">
+            <div class="text-sm text-gray-500">
+              显示 <span id="showingRange">0-0</span> 条，共 <span id="totalItems">0</span> 条
+            </div>
+            <div class="flex space-x-2">
+              <button id="prevPageBtn" class="px-3 py-1 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fa fa-chevron-left"></i>
+              </button>
+              <button id="nextPageBtn" class="px-3 py-1 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fa fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 新增/编辑设备页 -->
+      <div id="deviceFormPage" class="hidden">
+        <div class="bg-white rounded-lg shadow-card p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h2 id="formTitle" class="text-lg font-semibold flex items-center">
+              <i class="fa fa-plus-circle text-primary mr-2"></i>
+              新增设备
+            </h2>
+            <button id="cancelFormBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+              取消
+            </button>
+          </div>
+          
+          <form id="deviceForm" class="space-y-6">
+            <input type="hidden" id="deviceId">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label for="deviceNumber" class="block text-sm font-medium text-gray-700 mb-1">设备编号 <span class="text-danger">*</span></label>
+                <input type="text" id="deviceNumber" name="deviceNumber" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+              </div>
+              
+              <div>
+                <label for="customerName" class="block text-sm font-medium text-gray-700 mb-1">客户姓名 <span class="text-danger">*</span></label>
+                <input type="text" id="customerName" name="customerName" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+              </div>
+              
+              <div>
+                <label for="contactPhone" class="block text-sm font-medium text-gray-700 mb-1">联系电话 <span class="text-danger">*</span></label>
+                <input type="tel" id="contactPhone" name="contactPhone" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+              </div>
+              
+              <div>
+                <label for="machineModel" class="block text-sm font-medium text-gray-700 mb-1">机器型号 <span class="text-danger">*</span></label>
+                <input type="text" id="machineModel" name="machineModel" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+              </div>
+              
+              <div>
+                <label for="installationDate" class="block text-sm font-medium text-gray-700 mb-1">安装日期 <span class="text-danger">*</span></label>
+                <input type="date" id="installationDate" name="installationDate" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+              </div>
+              
+              <div>
+                <label for="firstMaintenanceDate" class="block text-sm font-medium text-gray-700 mb-1">首次维保完成日期 <span class="text-danger">*</span></label>
+                <input type="date" id="firstMaintenanceDate" name="firstMaintenanceDate" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+              </div>
+              
+              <div>
+                <label for="rentalPaymentCycle" class="block text-sm font-medium text-gray-700 mb-1">租金缴纳周期 <span class="text-danger">*</span></label>
+                <select id="rentalPaymentCycle" name="rentalPaymentCycle" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                  <option value="1">1个月</option>
+                  <option value="3">3个月</option>
+                  <option value="6">6个月</option>
+                  <option value="12">12个月</option>
+                </select>
+              </div>
+              
+              <div>
+                <label for="nextRentalDueDate" class="block text-sm font-medium text-gray-700 mb-1">租金下次到期日 <span class="text-danger">*</span></label>
+                <input type="date" id="nextRentalDueDate" name="nextRentalDueDate" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+              </div>
+              
+              <div>
+                <label for="maintenanceCycle" class="block text-sm font-medium text-gray-700 mb-1">维保周期 <span class="text-danger">*</span></label>
+                <select id="maintenanceCycle" name="maintenanceCycle" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                  <option value="1">1个月</option>
+                  <option value="2">2个月</option>
+                  <option value="3" selected>3个月</option>
+                  <option value="6">6个月</option>
+                </select>
+              </div>
+              
+              <div>
+                <label for="nextMaintenanceDate" class="block text-sm font-medium text-gray-700 mb-1">下次维保日期</label>
+                <input type="date" id="nextMaintenanceDate" name="nextMaintenanceDate" readonly
+                       class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none">
+              </div>
+            </div>
+            
+            <div>
+              <label for="installationAddress" class="block text-sm font-medium text-gray-700 mb-1">安装详细地址 <span class="text-danger">*</span></label>
+              <textarea id="installationAddress" name="installationAddress" rows="2" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+            </div>
+            
+            <div>
+              <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+              <textarea id="notes" name="notes" rows="3"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+            </div>
+            
+            <div class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+              <button type="button" id="resetFormBtn" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                重置
+              </button>
+              <button type="submit" id="saveDeviceBtn" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                保存
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <!-- 历史记录页 -->
+      <div id="historyPage" class="hidden">
+        <div class="bg-white rounded-lg shadow-card p-6 mb-6">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-history text-primary mr-2"></i>
+            历史记录
+          </h2>
+          
+          <div class="flex flex-col md:flex-row gap-4 mb-6">
+            <div class="flex-1">
+              <label for="historyDeviceFilter" class="block text-sm font-medium text-gray-700 mb-1">选择设备</label>
+              <select id="historyDeviceFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <option value="all">全部设备</option>
+                <!-- 设备选项将通过JavaScript动态生成 -->
+              </select>
+            </div>
+            
+            <div class="flex-1">
+              <label for="historyTypeFilter" class="block text-sm font-medium text-gray-700 mb-1">记录类型</label>
+              <select id="historyTypeFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <option value="all">全部记录</option>
+                <option value="maintenance">维保记录</option>
+                <option value="payment">缴费记录</option>
+              </select>
+            </div>
+            
+            <div class="flex-1">
+              <label for="historyDateRange" class="block text-sm font-medium text-gray-700 mb-1">日期范围</label>
+              <select id="historyDateRange" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <option value="7">最近7天</option>
+                <option value="30" selected>最近30天</option>
+                <option value="90">最近90天</option>
+                <option value="365">最近一年</option>
+                <option value="all">全部时间</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr>
+                  <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
+                  <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">设备编号</th>
+                  <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">客户姓名</th>
+                  <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">记录类型</th>
+                  <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">详情</th>
+                  <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作人</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody" class="bg-white divide-y divide-gray-200">
+                <!-- 历史记录将通过JavaScript动态生成 -->
+                <tr>
+                  <td colspan="6" class="px-6 py-10 text-center text-gray-500">
+                    <i class="fa fa-history text-2xl mb-2"></i>
+                    <p>暂无历史记录</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- 历史记录分页 -->
+          <div id="historyPagination" class="flex justify-between items-center mt-6">
+            <div class="text-sm text-gray-500">
+              显示 <span id="historyShowingRange">0-0</span> 条，共 <span id="historyTotalItems">0</span> 条
+            </div>
+            <div class="flex space-x-2">
+              <button id="historyPrevPageBtn" class="px-3 py-1 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fa fa-chevron-left"></i>
+              </button>
+              <button id="historyNextPageBtn" class="px-3 py-1 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fa fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 设备详情页 -->
+      <div id="deviceDetailPage" class="hidden">
+        <div class="bg-white rounded-lg shadow-card p-6 mb-6">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-semibold flex items-center">
+              <i class="fa fa-info-circle text-primary mr-2"></i>
+              设备详情
+            </h2>
+            <button id="backToListBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+              返回列表
+            </button>
+          </div>
+          
+          <div id="deviceDetailContent">
+            <!-- 设备详情将通过JavaScript动态生成 -->
+          </div>
+          
+          <!-- 维保记录 -->
+          <div class="mt-8">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-md font-semibold">维保记录</h3>
+              <button id="addMaintenanceBtn" class="px-4 py-1 bg-primary text-white text-sm rounded-lg hover:bg-blue-600 transition">
+                添加维保记录
+              </button>
+            </div>
+            <div id="maintenanceRecordsList" class="space-y-3">
+              <!-- 维保记录将通过JavaScript动态生成 -->
+              <div class="text-center text-gray-500 py-6">
+                <p>暂无维保记录</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 缴费记录 -->
+          <div class="mt-8">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-md font-semibold">缴费记录</h3>
+              <button id="addPaymentBtn" class="px-4 py-1 bg-primary text-white text-sm rounded-lg hover:bg-blue-600 transition">
+                添加缴费记录
+              </button>
+            </div>
+            <div id="paymentRecordsList" class="space-y-3">
+              <!-- 缴费记录将通过JavaScript动态生成 -->
+              <div class="text-center text-gray-500 py-6">
+                <p>暂无缴费记录</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 底部导航栏 -->
+  <nav class="bg-white shadow-lg border-t border-gray-200 fixed bottom-0 left-0 right-0 z-50">
+    <div class="container mx-auto px-4">
+      <div class="flex justify-around">
+        <button class="nav-btn active flex flex-col items-center py-3 px-4 w-1/4" data-page="homePage">
+          <i class="fa fa-home text-lg"></i>
+          <span class="text-xs mt-1">首页</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center py-3 px-4 w-1/4" data-page="devicesPage">
+          <i class="fa fa-list text-lg"></i>
+          <span class="text-xs mt-1">设备列表</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center py-3 px-4 w-1/4" data-page="deviceFormPage">
+          <i class="fa fa-plus-circle text-lg"></i>
+          <span class="text-xs mt-1">新增设备</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center py-3 px-4 w-1/4" data-page="historyPage">
+          <i class="fa fa-history text-lg"></i>
+          <span class="text-xs mt-1">历史记录</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 模态框 -->
+  <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+      <div id="modalHeader" class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+        <h3 id="modalTitle" class="text-lg font-semibold">模态框标题</h3>
+        <button id="closeModalBtn" class="text-gray-500 hover:text-gray-700">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      <div id="modalBody" class="px-6 py-4">
+        <!-- 模态框内容将通过JavaScript动态生成 -->
+      </div>
+      <div id="modalFooter" class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+        <!-- 模态框按钮将通过JavaScript动态生成 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    // 全局变量
+    const STORAGE_KEY = 'waterPurifierSystem';
+    let devices = [];
+    let currentPage = 'homePage';
+    let currentDeviceId = null;
+    let currentFilter = 'all';
+    let currentPageNum = 1;
+    let itemsPerPage = 10;
+    let filteredDevices = [];
+    let historyRecords = [];
+    let currentHistoryPage = 1;
+    let itemsPerHistoryPage = 10;
+    
+    // 初始化应用
+    document.addEventListener('DOMContentLoaded', () => {
+      // 从本地存储加载数据
+      loadData();
+      
+      // 初始化UI
+      initUI();
+      
+      // 绑定事件
+      bindEvents();
+      
+      // 显示首页
+      showPage('homePage');
+      
+      // 检查今日提醒
+      checkTodayReminders();
+    });
+    
+    // 从本地存储加载数据
+    function loadData() {
+      const storedData = localStorage.getItem(STORAGE_KEY);
+      if (storedData) {
+        try {
+          const parsedData = JSON.parse(storedData);
+          devices = parsedData.devices || [];
+          
+          // 转换日期字符串为Date对象
+          devices.forEach(device => {
+            device.installationDate = new Date(device.installationDate);
+            device.firstMaintenanceDate = new Date(device.firstMaintenanceDate);
+            device.nextRentalDueDate = new Date(device.nextRentalDueDate);
+            device.nextMaintenanceDate = new Date(device.nextMaintenanceDate);
+            device.createdAt = new Date(device.createdAt);
+            device.updatedAt = new Date(device.updatedAt);
+            
+            // 转换维保记录日期
+            if (device.maintenanceRecords) {
+              device.maintenanceRecords.forEach(record => {
+                record.maintenanceDate = new Date(record.maintenanceDate);
+                record.createdAt = new Date(record.createdAt);
+              });
+            }
+            
+            // 转换缴费记录日期
+            if (device.paymentRecords) {
+              device.paymentRecords.forEach(record => {
+                record.paymentDate = new Date(record.paymentDate);
+                record.createdAt = new Date(record.createdAt);
+              });
+            }
+          });
+          
+          // 更新设备状态
+          updateDevicesStatus();
+        } catch (error) {
+          console.error('加载数据失败:', error);
+          devices = [];
+        }
+      }
+    }
+    
+    // 保存数据到本地存储
+    function saveData() {
+      try {
+        const dataToSave = {
+          devices: devices,
+          lastUpdated: new Date().toISOString()
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+        return true;
+      } catch (error) {
+        console.error('保存数据失败:', error);
+        return false;
+      }
+    }
+    
+    // 初始化UI
+    function initUI() {
+      // 设置默认日期为今天
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('installationDate').value = today;
+      document.getElementById('firstMaintenanceDate').value = today;
+      
+      // 计算并设置下次维保日期
+      calculateNextMaintenanceDate();
+      
+      // 更新设备统计
+      updateDeviceStats();
+      
+      // 渲染设备列表
+      renderDevicesList();
+      
+      // 渲染历史记录筛选器
+      renderHistoryFilters();
+    }
+    
+    // 绑定事件
+    function bindEvents() {
+      // 导航按钮点击事件
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const page = btn.getAttribute('data-page');
+          showPage(page);
+          
+          // 如果是新增设备页，重置表单
+          if (page === 'deviceFormPage') {
+            resetDeviceForm();
+            document.getElementById('formTitle').innerHTML = '<i class="fa fa-plus-circle text-primary mr-2"></i>新增设备';
+          }
+        });
+      });
+      
+      // 表单提交事件
+      document.getElementById('deviceForm').addEventListener('submit', handleDeviceFormSubmit);
+      
+      // 取消表单按钮点击事件
+      document.getElementById('cancelFormBtn').addEventListener('click', () => {
+        showPage('devicesPage');
+      });
+      
+      // 重置表单按钮点击事件
+      document.getElementById('resetFormBtn').addEventListener('click', resetDeviceForm);
+      
+      // 安装日期和首次维保日期变更事件
+      document.getElementById('installationDate').addEventListener('change', calculateNextMaintenanceDate);
+      document.getElementById('firstMaintenanceDate').addEventListener('change', calculateNextMaintenanceDate);
+      document.getElementById('maintenanceCycle').addEventListener('change', calculateNextMaintenanceDate);
+      
+      // 租金缴纳周期变更事件
+      document.getElementById('rentalPaymentCycle').addEventListener('change', calculateNextRentalDate);
+      document.getElementById('nextRentalDueDate').addEventListener('change', calculateNextRentalDate);
+      
+      // 搜索输入事件
+      document.getElementById('searchInput').addEventListener('input', handleSearch);
+      
+      // 筛选按钮点击事件
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active', 'bg-primary', 'text-white'));
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.add('bg-gray-200', 'text-gray-700'));
+          
+          btn.classList.add('active', 'bg-primary', 'text-white');
+          btn.classList.remove('bg-gray-200', 'text-gray-700');
+          
+          currentFilter = btn.getAttribute('data-filter');
+          currentPageNum = 1;
+          renderDevicesList();
+        });
+      });
+      
+      // 分页按钮点击事件
+      document.getElementById('prevPageBtn').addEventListener('click', () => {
+        if (currentPageNum > 1) {
+          currentPageNum--;
+          renderDevicesList();
+        }
+      });
+      
+      document.getElementById('nextPageBtn').addEventListener('click', () => {
+        const totalPages = Math.ceil(filteredDevices.length / itemsPerPage);
+        if (currentPageNum < totalPages) {
+          currentPageNum++;
+          renderDevicesList();
+        }
+      });
+      
+      // 历史记录筛选器变更事件
+      document.getElementById('historyDeviceFilter').addEventListener('change', filterHistoryRecords);
+      document.getElementById('historyTypeFilter').addEventListener('change', filterHistoryRecords);
+      document.getElementById('historyDateRange').addEventListener('change', filterHistoryRecords);
+      
+      // 历史记录分页按钮点击事件
+      document.getElementById('historyPrevPageBtn').addEventListener('click', () => {
+        if (currentHistoryPage > 1) {
+          currentHistoryPage--;
+          renderHistoryRecords();
+        }
+      });
+      
+      document.getElementById('historyNextPageBtn').addEventListener('click', () => {
+        const totalPages = Math.ceil(historyRecords.length / itemsPerHistoryPage);
+        if (currentHistoryPage < totalPages) {
+          currentHistoryPage++;
+          renderHistoryRecords();
+        }
+      });
+      
+      // 模态框关闭按钮点击事件
+      document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+      
+      // 导出按钮点击事件
+      document.getElementById('exportBtn').addEventListener('click', exportData);
+      
+      // 备份按钮点击事件
+      document.getElementById('backupBtn').addEventListener('click', backupData);
+      
+      // 设置按钮点击事件
+      document.getElementById('settingsBtn').addEventListener('click', showSettings);
+      
+      // 批量导入按钮点击事件
+      document.getElementById('importBtn').addEventListener('click', showImportModal);
+      
+      // 新增设备按钮点击事件
+      document.getElementById('addDeviceBtn').addEventListener('click', () => {
+        resetDeviceForm();
+        showPage('deviceFormPage');
+      });
+      
+      // 返回列表按钮点击事件
+      document.getElementById('backToListBtn').addEventListener('click', () => {
+        showPage('devicesPage');
+      });
+      
+      // 添加维保记录按钮点击事件
+      document.getElementById('addMaintenanceBtn').addEventListener('click', () => {
+        showMaintenanceForm(currentDeviceId);
+      });
+      
+      // 添加缴费记录按钮点击事件
+      document.getElementById('addPaymentBtn').addEventListener('click', () => {
+        showPaymentForm(currentDeviceId);
+      });
+    }
+    
+    // 显示页面
+    function showPage(pageId) {
+      // 隐藏所有页面
+      document.querySelectorAll('#pageContent > div').forEach(page => {
+        page.classList.add('hidden');
+      });
+      
+      // 显示指定页面
+      document.getElementById(pageId).classList.remove('hidden');
+      
+      // 更新当前页面
+      currentPage = pageId;
+      
+      // 更新导航按钮状态
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        if (btn.getAttribute('data-page') === pageId) {
+          btn.classList.add('active', 'text-primary');
+        } else {
+          btn.classList.remove('active', 'text-primary');
+        }
+      });
+      
+      // 如果是首页，更新统计数据
+      if (pageId === 'homePage') {
+        updateDeviceStats();
+        renderTodayReminders();
+        renderTodoList();
+      }
+      
+      // 如果是设备列表页，重新渲染列表
+      if (pageId === 'devicesPage') {
+        renderDevicesList();
+      }
+      
+      // 如果是历史记录页，重新渲染历史记录
+      if (pageId === 'historyPage') {
+        renderHistoryRecords();
+      }
+    }
+    
+    // 计算下次维保日期
+    function calculateNextMaintenanceDate() {
+      const firstMaintenanceDate = document.getElementById('firstMaintenanceDate').value;
+      const maintenanceCycle = parseInt(document.getElementById('maintenanceCycle').value);
+      
+      if (firstMaintenanceDate) {
+        const date = new Date(firstMaintenanceDate);
+        date.setMonth(date.getMonth() + maintenanceCycle);
+        
+        const nextDate = date.toISOString().split('T')[0];
+        document.getElementById('nextMaintenanceDate').value = nextDate;
+      }
+    }
+    
+    // 计算下次租金到期日
+    function calculateNextRentalDate() {
+      const nextRentalDueDate = document.getElementById('nextRentalDueDate').value;
+      const rentalPaymentCycle = parseInt(document.getElementById('rentalPaymentCycle').value);
+      
+      if (nextRentalDueDate) {
+        const date = new Date(nextRentalDueDate);
+        date.setMonth(date.getMonth() + rentalPaymentCycle);
+        
+        // 这里可以添加逻辑来显示下下次到期日，但不需要设置到表单中
+      }
+    }
+    
+    // 重置设备表单
+    function resetDeviceForm() {
+      document.getElementById('deviceForm').reset();
+      document.getElementById('deviceId').value = '';
+      currentDeviceId = null;
+      
+      // 设置默认日期为今天
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('installationDate').value = today;
+      document.getElementById('firstMaintenanceDate').value = today;
+      
+      // 计算并设置下次维保日期
+      calculateNextMaintenanceDate();
+    }
+    
+    // 处理设备表单提交
+    function handleDeviceFormSubmit(e) {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target);
+      const deviceId = document.getElementById('deviceId').value;
+      
+      // 创建设备对象
+      const device = {
+        deviceNumber: formData.get('deviceNumber'),
+        customerName: formData.get('customerName'),
+        contactPhone: formData.get('contactPhone'),
+        installationAddress: formData.get('installationAddress'),
+        machineModel: formData.get('machineModel'),
+        installationDate: new Date(formData.get('installationDate')),
+        firstMaintenanceDate: new Date(formData.get('firstMaintenanceDate')),
+        rentalPaymentCycle: parseInt(formData.get('rentalPaymentCycle')),
+        nextRentalDueDate: new Date(formData.get('nextRentalDueDate')),
+        maintenanceCycle: parseInt(formData.get('maintenanceCycle')),
+        nextMaintenanceDate: new Date(formData.get('nextMaintenanceDate')),
+        notes: formData.get('notes'),
+        updatedAt: new Date()
+      };
+      
+      if (deviceId) {
+        // 更新现有设备
+        const index = devices.findIndex(d => d.id === deviceId);
+        if (index !== -1) {
+          device.id = deviceId;
+          device.createdAt = devices[index].createdAt;
+          device.maintenanceRecords = devices[index].maintenanceRecords || [];
+          device.paymentRecords = devices[index].paymentRecords || [];
+          
+          devices[index] = device;
+        }
+      } else {
+        // 添加新设备
+        device.id = generateId();
+        device.createdAt = new Date();
+        device.maintenanceRecords = [];
+        device.paymentRecords = [];
+        devices.push(device);
+      }
+      
+      // 更新设备状态
+      updateDevicesStatus();
+      
+      // 保存数据
+      if (saveData()) {
+        showToast(deviceId ? '设备更新成功' : '设备添加成功');
+        
+        // 更新UI
+        updateDeviceStats();
+        renderDevicesList();
+        renderHistoryFilters();
+        
+        // 显示设备列表页
+        showPage('devicesPage');
+      } else {
+        showToast('保存失败，请重试', 'error');
+      }
+    }
+    
+    // 生成唯一ID
+    function generateId() {
+      return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    }
+    
+    // 更新设备状态
+    function updateDevicesStatus() {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const threeDaysLater = new Date();
+      threeDaysLater.setDate(today.getDate() + 3);
+      threeDaysLater.setHours(0, 0, 0, 0);
+      
+      devices.forEach(device => {
+        const nextMaintenanceDate = new Date(device.nextMaintenanceDate);
+        nextMaintenanceDate.setHours(0, 0, 0, 0);
+        
+        const nextRentalDueDate = new Date(device.nextRentalDueDate);
+        nextRentalDueDate.setHours(0, 0, 0, 0);
+        
+        if (nextMaintenanceDate < today || nextRentalDueDate < today) {
+          device.status = 'expired';
+        } else if (nextMaintenanceDate <= threeDaysLater || nextRentalDueDate <= threeDaysLater) {
+          device.status = 'warning';
+        } else {
+          device.status = 'normal';
+        }
+      });
+    }
+    
+    // 更新设备统计
+    function updateDeviceStats() {
+      const total = devices.length;
+      const warning = devices.filter(d => d.status === 'warning').length;
+      const expired = devices.filter(d => d.status === 'expired').length;
+      
+      document.getElementById('totalDevices').textContent = total;
+      document.getElementById('warningDevices').textContent = warning;
+      document.getElementById('expiredDevices').textContent = expired;
+    }
+    
+    // 渲染今日提醒
+    function renderTodayReminders() {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const tomorrow = new Date();
+      tomorrow.setDate(today.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      
+      const todayReminders = devices.filter(device => {
+        const nextMaintenanceDate = new Date(device.nextMaintenanceDate);
+        nextMaintenanceDate.setHours(0, 0, 0, 0);
+        
+        const nextRentalDueDate = new Date(device.nextRentalDueDate);
+        nextRentalDueDate.setHours(0, 0, 0, 0);
+        
+        return (nextMaintenanceDate >= today && nextMaintenanceDate < tomorrow) || 
+               (nextRentalDueDate >= today && nextRentalDueDate < tomorrow);
+      });
+      
+      const remindersContainer = document.getElementById('todayReminders');
+      
+      if (todayReminders.length === 0) {
+        remindersContainer.innerHTML = `
+          <div class="text-center text-gray-500 py-8">
+            <i class="fa fa-check-circle text-4xl mb-3 text-green-500"></i>
+            <p>今日暂无待办事项</p>
+          </div>
+        `;
+        return;
+      }
+      
+      let html = '';
+      todayReminders.forEach(device => {
+        const nextMaintenanceDate = new Date(device.nextMaintenanceDate);
+        nextMaintenanceDate.setHours(0, 0, 0, 0);
+        
+        const nextRentalDueDate = new Date(device.nextRentalDueDate);
+        nextRentalDueDate.setHours(0, 0, 0, 0);
+        
+        const isMaintenanceToday = nextMaintenanceDate >= today && nextMaintenanceDate < tomorrow;
+        const isRentalDueToday = nextRentalDueDate >= today && nextRentalDueDate < tomorrow;
+        
+        html += `
+          <div class="p-4 border border-gray-200 rounded-lg ${device.status === 'expired' ? 'bg-red-50 border-red-200' : device.status === 'warning' ? 'bg-yellow-50 border-yellow-200' : 'bg-white'}">
+            <div class="flex justify-between items-start">
+              <div>
+                <h4 class="font-medium">${device.deviceNumber} - ${device.customerName}</h4>
+                <p class="text-sm text-gray-600 mt-1">${device.installationAddress}</p>
+              </div>
+              <span class="status-badge ${device.status === 'expired' ? 'status-expired' : device.status === 'warning' ? 'status-warning' : 'status-normal'}">
+                ${device.status === 'expired' ? '已过期' : device.status === 'warning' ? '即将到期' : '正常'}
+              </span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              ${isMaintenanceToday ? `
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <i class="fa fa-wrench mr-1"></i> 今日需维保
+                </span>
+              ` : ''}
+              ${isRentalDueToday ? `
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <i class="fa fa-money mr-1"></i> 今日需收租
+                </span>
+              ` : ''}
+            </div>
+            <div class="mt-3 flex justify-end">
+              <button class="view-device-btn px-3 py-1 text-sm bg-primary text-white rounded hover:bg-blue-600 transition" data-id="${device.id}">
+                查看详情
+              </button>
+            </div>
+          </div>
+        `;
+      });
+      
+      remindersContainer.innerHTML = html;
+      
+      // 绑定查看详情按钮点击事件
+      document.querySelectorAll('.view-device-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const deviceId = btn.getAttribute('data-id');
+          showDeviceDetail(deviceId);
+        });
+      });
+    }
+    
+    // 渲染待办事项列表
+    function renderTodoList() {
+      let todoDevices = [];
+      
+      if (currentFilter === 'all') {
+        todoDevices = devices.filter(device => device.status === 'warning' || device.status === 'expired');
+      } else {
+        todoDevices = devices.filter(device => device.status === currentFilter);
+      }
+      
+      // 按到期日期排序
+      todoDevices.sort((a, b) => {
+        const dateA = new Date(Math.min(new Date(a.nextMaintenanceDate), new Date(a.nextRentalDueDate)));
+        const dateB = new Date(Math.min(new Date(b.nextMaintenanceDate), new Date(b.nextRentalDueDate)));
+        return dateA - dateB;
+      });
+      
+      const todoListContainer = document.getElementById('todoList');
+      
+      if (todoDevices.length === 0) {
+        todoListContainer.innerHTML = `
+          <div class="text-center text-gray-500 py-8">
+            <i class="fa fa-list-alt text-4xl mb-3 text-gray-300"></i>
+            <p>暂无待办事项</p>
+          </div>
+        `;
+        return;
+      }
+      
+      let html = '';
+      todoDevices.forEach(device => {
+        const nextMaintenanceDate = new Date(device.nextMaintenanceDate);
+        const nextRentalDueDate = new Date(device.nextRentalDueDate);
+        
+        const maintenanceDaysLeft = Math.ceil((nextMaintenanceDate - new Date()) / (1000 * 60 * 60 * 24));
+        const rentalDaysLeft = Math.ceil((nextRentalDueDate - new Date()) / (1000 * 60 * 60 * 24));
+        
+        const isMaintenanceSoon = maintenanceDaysLeft <= 3 && maintenanceDaysLeft >= 0;
+        const isRentalSoon = rentalDaysLeft <= 3 && rentalDaysLeft >= 0;
+        const isMaintenanceOverdue = maintenanceDaysLeft < 0;
+        const isRentalOverdue = rentalDaysLeft < 0;
+        
+        html += `
+          <div class="p-4 border border-gray-200 rounded-lg ${device.status === 'expired' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}">
+            <div class="flex justify-between items-start">
+              <div>
+                <h4 class="font-medium">${device.deviceNumber} - ${device.customerName}</h4>
+                <p class="text-sm text-gray-600 mt-1">${device.installationAddress}</p>
+              </div>
+              <span class="status-badge ${device.status === 'expired' ? 'status-expired' : 'status-warning'}">
+                ${device.status === 'expired' ? '已过期' : '即将到期'}
+              </span>
+            </div>
+            <div class="mt-3 space-y-2">
+              <div class="flex justify-between items-center">
+                <span class="text-sm">维保到期：${formatDate(nextMaintenanceDate)}</span>
+                <span class="text-sm font-medium ${isMaintenanceOverdue ? 'text-red-600' : isMaintenanceSoon ? 'text-yellow-600' : 'text-gray-600'}">
+                  ${isMaintenanceOverdue ? `已过期 ${Math.abs(maintenanceDaysLeft)} 天` : 
+                    maintenanceDaysLeft === 0 ? '今日到期' : 
+                    maintenanceDaysLeft === 1 ? '明天到期' : 
+                    `还有 ${maintenanceDaysLeft} 天`}
+                </span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-sm">租金到期：${formatDate(nextRentalDueDate)}</span>
+                <span class="text-sm font-medium ${isRentalOverdue ? 'text-red-600' : isRentalSoon ? 'text-yellow-600' : 'text-gray-600'}">
+                  ${isRentalOverdue ? `已过期 ${Math.abs(rentalDaysLeft)} 天` : 
+                    rentalDaysLeft === 0 ? '今日到期' : 
+                    rentalDaysLeft === 1 ? '明天到期' : 
+                    `还有 ${rentalDaysLeft} 天`}
+                </span>
+              </div>
+            </div>
+            <div class="mt-3 flex justify-end space-x-2">
+              <button class="complete-maintenance-btn px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition" data-id="${device.id}">
+                完成维保
+              </button>
+              <button class="record-payment-btn px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition" data-id="${device.id}">
+                记录缴费
+              </button>
+              <button class="view-device-btn px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 transition" data-id="${device.id}">
+                查看详情
+              </button>
+            </div>
+          </div>
+        `;
+      });
+      
+      todoListContainer.innerHTML = html;
+      
+      // 绑定按钮点击事件
+      document.querySelectorAll('.complete-maintenance-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const deviceId = btn.getAttribute('data-id');
+          showMaintenanceForm(deviceId);
+        });
+      });
+      
+      document.querySelectorAll('.record-payment-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const deviceId = btn.getAttribute('data-id');
+          showPaymentForm(deviceId);
+        });
+      });
+      
+      document.querySelectorAll('.view-device-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const deviceId = btn.getAttribute('data-id');
+          showDeviceDetail(deviceId);
+        });
+      });
+    }
+    
+    // 渲染设备列表
+    function renderDevicesList() {
+      // 获取搜索关键词
+      const searchKeyword = document.getElementById('searchInput').value.toLowerCase();
+      
+      // 筛选设备
+      filteredDevices = devices.filter(device => {
+        // 搜索筛选
+        const matchesSearch = !searchKeyword || 
+          device.deviceNumber.toLowerCase().includes(searchKeyword) || 
+          device.customerName.toLowerCase().includes(searchKeyword);
+        
+        // 状态筛选
+        const matchesStatus = currentFilter === 'all' || device.status === currentFilter;
+        
+        return matchesSearch && matchesStatus;
+      });
+      
+      // 按设备编号排序
+      filteredDevices.sort((a, b) => {
+        const numA = parseInt(a.deviceNumber.replace(/[^0-9]/g, ''));
+        const numB = parseInt(b.deviceNumber.replace(/[^0-9]/g, ''));
+        return isNaN(numA) || isNaN(numB) ? a.deviceNumber.localeCompare(b.deviceNumber) : numA - numB;
+      });
+      
+      // 分页
+      const startIndex = (currentPageNum - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const paginatedDevices = filteredDevices.slice(startIndex, endIndex);
+      
+      const tableBody = document.getElementById('devicesTableBody');
+      
+      if (paginatedDevices.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="7" class="px-6 py-10 text-center text-gray-500">
+              <i class="fa fa-info-circle text-2xl mb-2"></i>
+              <p>没有找到匹配的设备</p>
+            </td>
+          </tr>
+        `;
+      } else {
+        let html = '';
+        paginatedDevices.forEach(device => {
+          const nextMaintenanceDate = new Date(device.nextMaintenanceDate);
+          const nextRentalDueDate = new Date(device.nextRentalDueDate);
+          
+          const maintenanceDaysLeft = Math.ceil((nextMaintenanceDate - new Date()) / (1000 * 60 * 60 * 24));
+          const rentalDaysLeft = Math.ceil((nextRentalDueDate - new Date()) / (1000 * 60 * 60 * 24));
+          
+          html += `
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="font-medium">${device.deviceNumber}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div>${device.customerName}</div>
+                <div class="text-sm text-gray-500">${device.contactPhone}</div>
+              </td>
+              <td class="px-6 py-4">
+                <div class="text-sm whitespace-nowrap overflow-hidden overflow-ellipsis max-w-xs">${device.installationAddress}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm">${formatDate(nextMaintenanceDate)}</div>
+                <div class="text-xs ${maintenanceDaysLeft < 0 ? 'text-red-600' : maintenanceDaysLeft <= 3 ? 'text-yellow-600' : 'text-gray-500'}">
+                  ${maintenanceDaysLeft < 0 ? `已过期 ${Math.abs(maintenanceDaysLeft)} 天` : 
+                    maintenanceDaysLeft === 0 ? '今日到期' : 
+                    maintenanceDaysLeft === 1 ? '明天到期' : 
+                    `还有 ${maintenanceDaysLeft} 天`}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm">${formatDate(nextRentalDueDate)}</div>
+                <div class="text-xs ${rentalDaysLeft < 0 ? 'text-red-600' : rentalDaysLeft <= 3 ? 'text-yellow-600' : 'text-gray-500'}">
+                  ${rentalDaysLeft < 0 ? `已过期 ${Math.abs(rentalDaysLeft)} 天` : 
+                    rentalDaysLeft === 0 ? '今日到期' : 
+                    rentalDaysLeft === 1 ? '明天到期' : 
+                    `还有 ${rentalDaysLeft} 天`}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="status-badge ${device.status === 'expired' ? 'status-expired' : device.status === 'warning' ? 'status-warning' : 'status-normal'}">
+                  ${device.status === 'expired' ? '已过期' : device.status === 'warning' ? '即将到期' : '正常'}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <div class="flex justify-end space-x-2">
+                  <button class="edit-device-btn text-primary hover:text-blue-700" data-id="${device.id}">
+                    <i class="fa fa-pencil"></i>
+                  </button>
+                  <button class="view-device-btn text-gray-600 hover:text-gray-900" data-id="${device.id}">
+                    <i class="fa fa-eye"></i>
+                  </button>
+                  <button class="delete-device-btn text-red-600 hover:text-red-800" data-id="${device.id}">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+        
+        tableBody.innerHTML = html;
+        
+        // 绑定按钮点击事件
+        document.querySelectorAll('.edit-device-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const deviceId = btn.getAttribute('data-id');
+            editDevice(deviceId);
+          });
+        });
+        
+        document.querySelectorAll('.view-device-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const deviceId = btn.getAttribute('data-id');
+            showDeviceDetail(deviceId);
+          });
+        });
+        
+        document.querySelectorAll('.delete-device-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const deviceId = btn.getAttribute('data-id');
+            deleteDevice(deviceId);
+          });
+        });
+      }
+      
+      // 更新分页信息
+      document.getElementById('showingRange').textContent = `${startIndex + 1}-${Math.min(endIndex, filteredDevices.length)}`;
+      document.getElementById('totalItems').textContent = filteredDevices.length;
+      
+      // 更新分页按钮状态
+      document.getElementById('prevPageBtn').disabled = currentPageNum === 1;
+      document.getElementById('nextPageBtn').disabled = endIndex >= filteredDevices.length;
+    }
+    
+    // 处理搜索
+    function handleSearch() {
+      currentPageNum = 1;
+      renderDevicesList();
+    }
+    
+    // 编辑设备
+    function editDevice(deviceId) {
+      const device = devices.find(d => d.id === deviceId);
+      if (!device) return;
+      
+      // 填充表单
+      document.getElementById('deviceId').value = device.id;
+      document.getElementById('deviceNumber').value = device.deviceNumber;
+      document.getElementById('customerName').value = device.customerName;
+      document.getElementById('contactPhone').value = device.contactPhone;
+      document.getElementById('installationAddress').value = device.installationAddress;
+      document.getElementById('machineModel').value = device.machineModel;
+      document.getElementById('installationDate').value = device.installationDate.toISOString().split('T')[0];
+      document.getElementById('firstMaintenanceDate').value = device.firstMaintenanceDate.toISOString().split('T')[0];
+      document.getElementById('rentalPaymentCycle').value = device.rentalPaymentCycle;
+      document.getElementById('nextRentalDueDate').value = device.nextRentalDueDate.toISOString().split('T')[0];
+      document.getElementById('maintenanceCycle').value = device.maintenanceCycle;
+      document.getElementById('nextMaintenanceDate').value = device.nextMaintenanceDate.toISOString().split('T')[0];
+      document.getElementById('notes').value = device.notes || '';
+      
+      // 更新表单标题
+      document.getElementById('formTitle').innerHTML = '<i class="fa fa-pencil text-primary mr-2"></i>编辑设备';
+      
+      // 设置当前设备ID
+      currentDeviceId = deviceId;
+      
+      // 显示表单页
+      showPage('deviceFormPage');
+    }
+    
+    // 删除设备
+    function deleteDevice(deviceId) {
+      const device = devices.find(d => d.id === deviceId);
+      if (!device) return;
+      
+      // 显示确认对话框
+      showModal({
+        title: '确认删除',
+        body: `确定要删除设备 ${device.deviceNumber} - ${device.customerName} 吗？此操作不可撤销。`,
+        footer: `
+          <button id="cancelDeleteBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+            取消
+          </button>
+          <button id="confirmDeleteBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+            确认删除
+          </button>
+        `,
+        onShow: () => {
+          document.getElementById('cancelDeleteBtn').addEventListener('click', closeModal);
+          document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
+            // 从数组中删除设备
+            devices = devices.filter(d => d.id !== deviceId);
+            
+            // 保存数据
+            if (saveData()) {
+              showToast('设备已删除');
+              
+              // 更新UI
+              updateDeviceStats();
+              renderDevicesList();
+              renderHistoryFilters();
+              renderTodayReminders();
+              renderTodoList();
+            } else {
+              showToast('删除失败，请重试', 'error');
+            }
+            
+            closeModal();
+          });
+        }
+      });
+    }
+    
+    // 显示设备详情
+    function showDeviceDetail(deviceId) {
+      const device = devices.find(d => d.id === deviceId);
+      if (!device) return;
+      
+      // 设置当前设备ID
+      currentDeviceId = deviceId;
+      
+      // 生成设备详情HTML
+      const nextMaintenanceDate = new Date(device.nextMaintenanceDate);
+      const nextRentalDueDate = new Date(device.nextRentalDueDate);
+      
+      const maintenanceDaysLeft = Math.ceil((nextMaintenanceDate - new Date()) / (1000 * 60 * 60 * 24));
+      const rentalDaysLeft = Math.ceil((nextRentalDueDate - new Date()) / (1000 * 60 * 60 * 24));
+      
+      const detailHtml = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 class="text-md font-semibold mb-3">基本信息</h3>
+            <div class="space-y-3">
+              <div class="flex">
+                <span class="w-24 text-gray-600">设备编号:</span>
+                <span class="font-medium">${device.deviceNumber}</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-600">客户姓名:</span>
+                <span>${device.customerName}</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-600">联系电话:</span>
+                <span>${device.contactPhone}</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-600">机器型号:</span>
+                <span>${device.machineModel}</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-600">安装地址:</span>
+                <span>${device.installationAddress}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <h3 class="text-md font-semibold mb-3">合同信息</h3>
+            <div class="space-y-3">
+              <div class="flex">
+                <span class="w-24 text-gray-600">安装日期:</span>
+                <span>${formatDate(device.installationDate)}</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-600">首次维保:</span>
+                <span>${formatDate(device.firstMaintenanceDate)}</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-600">维保周期:</span>
+                <span>${device.maintenanceCycle} 个月</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-600">下次维保:</span>
+                <span class="${maintenanceDaysLeft < 0 ? 'text-red-600 font-medium' : maintenanceDaysLeft <= 3 ? 'text-yellow-600 font-medium' : ''}">
+                  ${formatDate(nextMaintenanceDate)}
+                  ${maintenanceDaysLeft < 0 ? ` (已过期 ${Math.abs(maintenanceDaysLeft)} 天)` : 
+                    maintenanceDaysLeft === 0 ? ' (今日到期)' : 
+                    maintenanceDaysLeft === 1 ? ' (明天到期)' : 
+                    maintenanceDaysLeft <= 3 ? ` (还有 ${maintenanceDaysLeft} 天)` : ''}
+                </span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-600">租金周期:</span>
+                <span>${device.rentalPaymentCycle} 个月</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-600">下次收租:</span>
+                <span class="${rentalDaysLeft < 0 ? 'text-red-600 font-medium' : rentalDaysLeft <= 3 ? 'text-yellow-600 font-medium' : ''}">
+                  ${formatDate(nextRentalDueDate)}
+                  ${rentalDaysLeft < 0 ? ` (已过期 ${Math.abs(rentalDaysLeft)} 天)` : 
+                    rentalDaysLeft === 0 ? ' (今日到期)' : 
+                    rentalDaysLeft === 1 ? ' (明天到期)' : 
+                    rentalDaysLeft <= 3 ? ` (还有 ${rentalDaysLeft} 天)` : ''}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mt-6">
+          <h3 class="text-md font-semibold mb-3">备注</h3>
+          <div class="p-4 bg-gray-50 rounded-lg">
+            ${device.notes ? device.notes : '无'}
+          </div>
+        </div>
+        
+        <div class="mt-6 flex justify-end space-x-3">
+          <button id="editDeviceDetailBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+            <i class="fa fa-pencil mr-1"></i> 编辑设备
+          </button>
+          <button id="deleteDeviceDetailBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+            <i class="fa fa-trash mr-1"></i> 删除设备
+          </button>
+        </div>
+      `;
+      
+      // 更新设备详情内容
+      document.getElementById('deviceDetailContent').innerHTML = detailHtml;
+      
+      // 渲染维保记录
+      renderMaintenanceRecords(deviceId);
+      
+      // 渲染缴费记录
+      renderPaymentRecords(deviceId);
+      
+      // 绑定按钮点击事件
+      document.getElementById('editDeviceDetailBtn').addEventListener('click', () => {
+        editDevice(deviceId);
+      });
+      
+      document.getElementById('deleteDeviceDetailBtn').addEventListener('click', () => {
+        deleteDevice(deviceId);
+      });
+      
+      // 显示设备详情页
+      showPage('deviceDetailPage');
+    }
+    
+    // 渲染维保记录
+    function renderMaintenanceRecords(deviceId) {
+      const device = devices.find(d => d.id === deviceId);
+      if (!device || !device.maintenanceRecords || device.maintenanceRecords.length === 0) {
+        document.getElementById('maintenanceRecordsList').innerHTML = `
+          <div class="text-center text-gray-500 py-6">
+            <p>暂无维保记录</p>
+          </div>
+        `;
+        return;
+      }
+      
+      // 按日期排序，最新的在前
+      const sortedRecords = [...device.maintenanceRecords].sort((a, b) => 
+        new Date(b.maintenanceDate) - new Date(a.maintenanceDate)
+      );
+      
+      let html = '';
+      sortedRecords.forEach(record => {
+        html += `
+          <div class="p-4 border border-gray-200 rounded-lg">
+            <div class="flex justify-between items-start">
+              <div>
+                <div class="font-medium">${record.maintenanceType || '常规维保'}</div>
+                <div class="text-sm text-gray-600 mt-1">维保人员: ${record.maintenancePerson || '未知'}</div>
+              </div>
+              <span class="text-sm text-gray-500">${formatDate(record.maintenanceDate)}</span>
+            </div>
+            ${record.notes ? `
+              <div class="mt-2 text-sm">${record.notes}</div>
+            ` : ''}
+          </div>
+        `;
+      });
+      
+      document.getElementById('maintenanceRecordsList').innerHTML = html;
+    }
+    
+    // 渲染缴费记录
+    function renderPaymentRecords(deviceId) {
+      const device = devices.find(d => d.id === deviceId);
+      if (!device || !device.paymentRecords || device.paymentRecords.length === 0) {
+        document.getElementById('paymentRecordsList').innerHTML = `
+          <div class="text-center text-gray-500 py-6">
+            <p>暂无缴费记录</p>
+          </div>
+        `;
+        return;
+      }
+      
+      // 按日期排序，最新的在前
+      const sortedRecords = [...device.paymentRecords].sort((a, b) => 
+        new Date(b.paymentDate) - new Date(a.paymentDate)
+      );
+      
+      let html = '';
+      sortedRecords.forEach(record => {
+        html += `
+          <div class="p-4 border border-gray-200 rounded-lg">
+            <div class="flex justify-between items-start">
+              <div>
+                <div class="font-medium">${record.paymentPeriod || '租金'}</div>
+                <div class="text-sm text-gray-600 mt-1">缴费方式: ${record.paymentMethod || '未知'}</div>
+              </div>
+              <div class="text-right">
+                <div class="font-medium text-green-600">¥${record.paymentAmount.toFixed(2)}</div>
+                <div class="text-sm text-gray-500">${formatDate(record.paymentDate)}</div>
+              </div>
+            </div>
+            ${record.notes ? `
+              <div class="mt-2 text-sm">${record.notes}</div>
+            ` : ''}
+          </div>
+        `;
+      });
+      
+      document.getElementById('paymentRecordsList').innerHTML = html;
+    }
+    
+    // 渲染历史记录筛选器
+    function renderHistoryFilters() {
+      const deviceFilter = document.getElementById('historyDeviceFilter');
+      
+      // 清空现有选项
+      deviceFilter.innerHTML = '<option value="all">全部设备</option>';
+      
+      // 添加设备选项
+      devices.forEach(device => {
+        const option = document.createElement('option');
+        option.value = device.id;
+        option.textContent = `${device.deviceNumber} - ${device.customerName}`;
+        deviceFilter.appendChild(option);
+      });
+      
+      // 重新筛选历史记录
+      filterHistoryRecords();
+    }
+    
+    // 筛选历史记录
+    function filterHistoryRecords() {
+      const deviceId = document.getElementById('historyDeviceFilter').value;
+      const recordType = document.getElementById('historyTypeFilter').value;
+      const dateRange = parseInt(document.getElementById('historyDateRange').value);
+      
+      // 获取日期范围
+      let startDate = null;
+      if (dateRange !== 'all') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - dateRange);
+      }
+      
+      // 收集所有历史记录
+      let allRecords = [];
+      
+      devices.forEach(device => {
+        // 筛选设备
+        if (deviceId !== 'all' && device.id !== deviceId) return;
+        
+        // 添加维保记录
+        if (recordType !== 'payment' && device.maintenanceRecords) {
+          device.maintenanceRecords.forEach(record => {
+            // 筛选日期
+            if (startDate && new Date(record.maintenanceDate) < startDate) return;
+            
+            allRecords.push({
+              id: record.id,
+              deviceId: device.id,
+              deviceNumber: device.deviceNumber,
+              customerName: device.customerName,
+              date: new Date(record.maintenanceDate),
+              type: 'maintenance',
+              typeName: record.maintenanceType || '常规维保',
+              details: `维保人员: ${record.maintenancePerson || '未知'}`,
+              notes: record.notes,
+              operator: record.maintenancePerson || '未知'
+            });
+          });
+        }
+        
+        // 添加缴费记录
+        if (recordType !== 'maintenance' && device.paymentRecords) {
+          device.paymentRecords.forEach(record => {
+            // 筛选日期
+            if (startDate && new Date(record.paymentDate) < startDate) return;
+            
+            allRecords.push({
+              id: record.id,
+              deviceId: device.id,
+              deviceNumber: device.deviceNumber,
+              customerName: device.customerName,
+              date: new Date(record.paymentDate),
+              type: 'payment',
+              typeName: '租金缴纳',
+              details: `金额: ¥${record.paymentAmount.toFixed(2)}`,
+              notes: record.notes,
+              operator: '系统'
+            });
+          });
+        }
+      });
+      
+      // 按日期排序，最新的在前
+      historyRecords = allRecords.sort((a, b) => b.date - a.date);
+      
+      // 重置分页
+      currentHistoryPage = 1;
+      
+      // 渲染历史记录
+      renderHistoryRecords();
+    }
+    
+    // 渲染历史记录
+    function renderHistoryRecords() {
+      // 分页
+      const startIndex = (currentHistoryPage - 1) * itemsPerHistoryPage;
+      const endIndex = startIndex + itemsPerHistoryPage;
+      const paginatedRecords = historyRecords.slice(startIndex, endIndex);
+      
+      const tableBody = document.getElementById('historyTableBody');
+      
+      if (paginatedRecords.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="6" class="px-6 py-10 text-center text-gray-500">
+              <i class="fa fa-history text-2xl mb-2"></i>
+              <p>暂无历史记录</p>
+            </td>
+          </tr>
+        `;
+      } else {
+        let html = '';
+        paginatedRecords.forEach(record => {
+          html += `
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm">${formatDate(record.date)}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="font-medium">${record.deviceNumber}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div>${record.customerName}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  record.type === 'maintenance' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                }">
+                  ${record.typeName}
+                </span>
+              </td>
+              <td class="px-6 py-4">
+                <div class="text-sm">${record.details}</div>
+                ${record.notes ? `<div class="text-xs text-gray-500 mt-1">${record.notes}</div>` : ''}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm">
+                ${record.operator}
+              </td>
+            </tr>
+          `;
+        });
+        
+        tableBody.innerHTML = html;
+      }
+      
+      // 更新分页信息
+      document.getElementById('historyShowingRange').textContent = `${startIndex + 1}-${Math.min(endIndex, historyRecords.length)}`;
+      document.getElementById('historyTotalItems').textContent = historyRecords.length;
+      
+      // 更新分页按钮状态
+      document.getElementById('historyPrevPageBtn').disabled = currentHistoryPage === 1;
+      document.getElementById('historyNextPageBtn').disabled = endIndex >= historyRecords.length;
+    }
+    
+    // 显示维保表单
+    function showMaintenanceForm(deviceId) {
+      const device = devices.find(d => d.id === deviceId);
+      if (!device) return;
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      showModal({
+        title: '记录维保',
+        body: `
+          <form id="maintenanceForm" class="space-y-4">
+            <input type="hidden" name="deviceId" value="${deviceId}">
+            
+            <div>
+              <label for="maintenanceDate" class="block text-sm font-medium text-gray-700 mb-1">维保日期 <span class="text-danger">*</span></label>
+              <input type="date" id="maintenanceDate" name="maintenanceDate" value="${today}" required
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            
+            <div>
+              <label for="maintenanceType" class="block text-sm font-medium text-gray-700 mb-1">维保类型</label>
+              <select id="maintenanceType" name="maintenanceType"
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <option value="常规维保">常规维保</option>
+                <option value="滤芯更换">滤芯更换</option>
+                <option value="故障维修">故障维修</option>
+                <option value="设备升级">设备升级</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+            
+            <div>
+              <label for="maintenancePerson" class="block text-sm font-medium text-gray-700 mb-1">维保人员 <span class="text-danger">*</span></label>
+              <input type="text" id="maintenancePerson" name="maintenancePerson" required
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            
+            <div>
+              <label for="maintenanceNotes" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+              <textarea id="maintenanceNotes" name="maintenanceNotes" rows="3"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+            </div>
+          </form>
+        `,
+        footer: `
+          <button id="cancelMaintenanceBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+            取消
+          </button>
+          <button id="saveMaintenanceBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+            保存
+          </button>
+        `,
+        onShow: () => {
+          document.getElementById('cancelMaintenanceBtn').addEventListener('click', closeModal);
+          document.getElementById('saveMaintenanceBtn').addEventListener('click', () => {
+            const formData = new FormData(document.getElementById('maintenanceForm'));
+            
+            // 创建维保记录
+            const maintenanceRecord = {
+              id: generateId(),
+              deviceId: formData.get('deviceId'),
+              maintenanceDate: new Date(formData.get('maintenanceDate')),
+              maintenanceType: formData.get('maintenanceType'),
+              maintenancePerson: formData.get('maintenancePerson'),
+              notes: formData.get('maintenanceNotes'),
+              createdAt: new Date()
+            };
+            
+            // 更新设备的维保记录
+            const deviceIndex = devices.findIndex(d => d.id === deviceId);
+            if (deviceIndex !== -1) {
+              if (!devices[deviceIndex].maintenanceRecords) {
+                devices[deviceIndex].maintenanceRecords = [];
+              }
+              
+              devices[deviceIndex].maintenanceRecords.push(maintenanceRecord);
+              
+              // 更新下次维保日期
+              const maintenanceDate = new Date(formData.get('maintenanceDate'));
+              const nextMaintenanceDate = new Date(maintenanceDate);
+              nextMaintenanceDate.setMonth(nextMaintenanceDate.getMonth() + devices[deviceIndex].maintenanceCycle);
+              devices[deviceIndex].nextMaintenanceDate = nextMaintenanceDate;
+              
+              // 更新设备状态
+              updateDevicesStatus();
+              
+              // 保存数据
+              if (saveData()) {
+                showToast('维保记录已保存');
+                
+                // 更新UI
+                updateDeviceStats();
+                renderDevicesList();
+                renderMaintenanceRecords(deviceId);
+                renderTodayReminders();
+                renderTodoList();
+                
+                // 如果当前在设备详情页，刷新详情
+                if (currentPage === 'deviceDetailPage' && currentDeviceId === deviceId) {
+                  showDeviceDetail(deviceId);
+                }
+              } else {
+                showToast('保存失败，请重试', 'error');
+              }
+            }
+            
+            closeModal();
+          });
+        }
+      });
+    }
+    
+    // 显示缴费表单
+    function showPaymentForm(deviceId) {
+      const device = devices.find(d => d.id === deviceId);
+      if (!device) return;
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      showModal({
+        title: '记录缴费',
+        body: `
+          <form id="paymentForm" class="space-y-4">
+            <input type="hidden" name="deviceId" value="${deviceId}">
+            
+            <div>
+              <label for="paymentDate" class="block text-sm font-medium text-gray-700 mb-1">缴费日期 <span class="text-danger">*</span></label>
+              <input type="date" id="paymentDate" name="paymentDate" value="${today}" required
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            
+            <div>
+              <label for="paymentAmount" class="block text-sm font-medium text-gray-700 mb-1">缴费金额 <span class="text-danger">*</span></label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span class="text-gray-500">¥</span>
+                </div>
+                <input type="number" id="paymentAmount" name="paymentAmount" step="0.01" min="0" required
+                       class="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+              </div>
+            </div>
+            
+            <div>
+              <label for="paymentPeriod" class="block text-sm font-medium text-gray-700 mb-1">缴费周期</label>
+              <select id="paymentPeriod" name="paymentPeriod"
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <option value="${device.rentalPaymentCycle}个月">${device.rentalPaymentCycle}个月</option>
+                <option value="1个月">1个月</option>
+                <option value="3个月">3个月</option>
+                <option value="6个月">6个月</option>
+                <option value="12个月">12个月</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+            
+            <div>
+              <label for="paymentMethod" class="block text-sm font-medium text-gray-700 mb-1">缴费方式</label>
+              <select id="paymentMethod" name="paymentMethod"
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <option value="微信支付">微信支付</option>
+                <option value="支付宝">支付宝</option>
+                <option value="银行转账">银行转账</option>
+                <option value="现金">现金</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+            
+            <div>
+              <label for="paymentNotes" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+              <textarea id="paymentNotes" name="paymentNotes" rows="3"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+            </div>
+          </form>
+        `,
+        footer: `
+          <button id="cancelPaymentBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+            取消
+          </button>
+          <button id="savePaymentBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+            保存
+          </button>
+        `,
+        onShow: () => {
+          document.getElementById('cancelPaymentBtn').addEventListener('click', closeModal);
+          document.getElementById('savePaymentBtn').addEventListener('click', () => {
+            const formData = new FormData(document.getElementById('paymentForm'));
+            
+            // 创建缴费记录
+            const paymentRecord = {
+              id: generateId(),
+              deviceId: formData.get('deviceId'),
+              paymentDate: new Date(formData.get('paymentDate')),
+              paymentAmount: parseFloat(formData.get('paymentAmount')),
+              paymentPeriod: formData.get('paymentPeriod'),
+              paymentMethod: formData.get('paymentMethod'),
+              notes: formData.get('paymentNotes'),
+              createdAt: new Date()
+            };
+            
+            // 更新设备的缴费记录
+            const deviceIndex = devices.findIndex(d => d.id === deviceId);
+            if (deviceIndex !== -1) {
+              if (!devices[deviceIndex].paymentRecords) {
+                devices[deviceIndex].paymentRecords = [];
+              }
+              
+              devices[deviceIndex].paymentRecords.push(paymentRecord);
+              
+              // 更新下次租金到期日
+              const paymentDate = new Date(formData.get('paymentDate'));
+              const nextRentalDueDate = new Date(paymentDate);
+              nextRentalDueDate.setMonth(nextRentalDueDate.getMonth() + devices[deviceIndex].rentalPaymentCycle);
+              devices[deviceIndex].nextRentalDueDate = nextRentalDueDate;
+              
+              // 更新设备状态
+              updateDevicesStatus();
+              
+              // 保存数据
+              if (saveData()) {
+                showToast('缴费记录已保存');
+                
+                // 更新UI
+                updateDeviceStats();
+                renderDevicesList();
+                renderPaymentRecords(deviceId);
+                renderTodayReminders();
+                renderTodoList();
+                
+                // 如果当前在设备详情页，刷新详情
+                if (currentPage === 'deviceDetailPage' && currentDeviceId === deviceId) {
+                  showDeviceDetail(deviceId);
+                }
+              } else {
+                showToast('保存失败，请重试', 'error');
+              }
+            }
+            
+            closeModal();
+          });
+        }
+      });
+    }
+    
+    // 显示模态框
+    function showModal(options) {
+      const modal = document.getElementById('modal');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalBody = document.getElementById('modalBody');
+      const modalFooter = document.getElementById('modalFooter');
+      
+      // 设置模态框内容
+      modalTitle.textContent = options.title || '提示';
+      modalBody.innerHTML = options.body || '';
+      modalFooter.innerHTML = options.footer || '';
+      
+      // 显示模态框
+      modal.classList.remove('hidden');
+      
+      // 执行回调
+      if (options.onShow) {
+        options.onShow();
+      }
+    }
+    
+    // 关闭模态框
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+    }
+    
+    // 显示导入模态框
+    function showImportModal() {
+      showModal({
+        title: '批量导入设备',
+        body: `
+          <div class="space-y-4">
+            <p class="text-sm text-gray-600">
+              请下载模板文件，填写设备信息后上传。
+            </p>
+            <div class="flex justify-center">
+              <button id="downloadTemplateBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                <i class="fa fa-download mr-2"></i> 下载模板
+              </button>
+            </div>
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <i class="fa fa-cloud-upload text-4xl text-gray-400 mb-2"></i>
+              <p class="text-sm text-gray-500 mb-2">拖拽Excel文件到此处，或点击上传</p>
+              <input type="file" id="importFileInput" accept=".xlsx,.xls" class="hidden">
+              <button id="browseFileBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                浏览文件
+              </button>
+            </div>
+            <div id="importPreview" class="hidden">
+              <h4 class="font-medium mb-2">预览</h4>
+              <div class="overflow-x-auto max-h-60 border border-gray-200 rounded-lg">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead id="importPreviewHeader" class="bg-gray-50">
+                    <!-- 预览表头将通过JavaScript动态生成 -->
+                  </thead>
+                  <tbody id="importPreviewBody" class="bg-white divide-y divide-gray-200">
+                    <!-- 预览内容将通过JavaScript动态生成 -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        `,
+        footer: `
+          <button id="cancelImportBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+            取消
+          </button>
+          <button id="confirmImportBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition" disabled>
+            导入
+          </button>
+        `,
+        onShow: () => {
+          let importedData = null;
+          
+          document.getElementById('cancelImportBtn').addEventListener('click', closeModal);
+          
+          document.getElementById('downloadTemplateBtn').addEventListener('click', () => {
+            // 创建模板数据
+            const templateData = [
+              {
+                '设备编号': 'W001',
+                '客户姓名': '张三',
+                '联系电话': '13800138000',
+                '安装详细地址': '北京市朝阳区某某街道1号',
+                '机器型号': 'RO-100G',
+                '安装日期': '2023-01-01',
+                '首次维保完成日期': '2023-01-01',
+                '租金缴纳周期(月)': '3',
+                '租金下次到期日': '2023-04-01',
+                '维保周期(月)': '3',
+                '备注': '办公室使用'
+              }
+            ];
+            
+            // 创建工作簿
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(templateData);
+            
+            // 添加工作表到工作簿
+            XLSX.utils.book_append_sheet(wb, ws, '设备信息');
+            
+            // 下载文件
+            XLSX.writeFile(wb, '设备导入模板.xlsx');
+          });
+          
+          document.getElementById('browseFileBtn').addEventListener('click', () => {
+            document.getElementById('importFileInput').click();
+          });
+          
+          document.getElementById('importFileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, { type: 'array' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                
+                // 将Excel数据转换为JSON
+                importedData = XLSX.utils.sheet_to_json(ws);
+                
+                if (importedData.length === 0) {
+                  showToast('文件中没有数据', 'error');
+                  return;
+                }
+                
+                // 显示预览
+                showImportPreview(importedData);
+                
+                // 启用导入按钮
+                document.getElementById('confirmImportBtn').disabled = false;
+              } catch (error) {
+                console.error('读取文件失败:', error);
+                showToast('读取文件失败，请检查文件格式', 'error');
+              }
+            };
+            
+            reader.readAsArrayBuffer(file);
+          });
+          
+          document.getElementById('confirmImportBtn').addEventListener('click', () => {
+            if (!importedData || importedData.length === 0) return;
+            
+            // 导入数据
+            let successCount = 0;
+            let errorCount = 0;
+            
+            importedData.forEach(row => {
+              try {
+                // 验证必填字段
+                if (!row['设备编号'] || !row['客户姓名'] || !row['联系电话'] || 
+                    !row['安装详细地址'] || !row['机器型号'] || !row['安装日期'] || 
+                    !row['首次维保完成日期'] || !row['租金缴纳周期(月)'] || !row['租金下次到期日']) {
+                  errorCount++;
+                  return;
+                }
+                
+                // 检查设备编号是否已存在
+                if (devices.some(d => d.deviceNumber === row['设备编号'])) {
+                  errorCount++;
+                  return;
+                }
+                
+                // 创建设备对象
+                const device = {
+                  id: generateId(),
+                  deviceNumber: row['设备编号'],
+                  customerName: row['客户姓名'],
+                  contactPhone: row['联系电话'],
+                  installationAddress: row['安装详细地址'],
+                  machineModel: row['机器型号'],
+                  installationDate: new Date(row['安装日期']),
+                  firstMaintenanceDate: new Date(row['首次维保完成日期']),
+                  rentalPaymentCycle: parseInt(row['租金缴纳周期(月)']),
+                  nextRentalDueDate: new Date(row['租金下次到期日']),
+                  maintenanceCycle: row['维保周期(月)'] ? parseInt(row['维保周期(月)']) : 3,
+                  notes: row['备注'] || '',
+                  maintenanceRecords: [],
+                  paymentRecords: [],
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                };
+                
+                // 计算下次维保日期
+                const nextMaintenanceDate = new Date(device.firstMaintenanceDate);
+                nextMaintenanceDate.setMonth(nextMaintenanceDate.getMonth() + device.maintenanceCycle);
+                device.nextMaintenanceDate = nextMaintenanceDate;
+                
+                // 添加设备
+                devices.push(device);
+                
+                successCount++;
+              } catch (error) {
+                console.error('导入行失败:', error);
+                errorCount++;
+              }
+            });
+            
+            // 更新设备状态
+            updateDevicesStatus();
+            
+            // 保存数据
+            if (saveData()) {
+              showToast(`成功导入 ${successCount} 条记录${errorCount > 0 ? `，失败 ${errorCount} 条` : ''}`);
+              
+              // 更新UI
+              updateDeviceStats();
+              renderDevicesList();
+              renderHistoryFilters();
+              renderTodayReminders();
+              renderTodoList();
+              
+              // 关闭模态框
+              closeModal();
+            } else {
+              showToast('保存数据失败，请重试', 'error');
+            }
+          });
+        }
+      });
+    }
+    
+    // 显示导入预览
+    function showImportPreview(data) {
+      const previewContainer = document.getElementById('importPreview');
+      const previewHeader = document.getElementById('importPreviewHeader');
+      const previewBody = document.getElementById('importPreviewBody');
+      
+      // 清空预览
+      previewHeader.innerHTML = '';
+      previewBody.innerHTML = '';
+      
+      if (!data || data.length === 0) {
+        previewContainer.classList.add('hidden');
+        return;
+      }
+      
+      // 获取表头
+      const headers = Object.keys(data[0]);
+      
+      // 创建表头行
+      let headerHtml = '<tr>';
+      headers.forEach(header => {
+        headerHtml += `<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${header}</th>`;
+      });
+      headerHtml += '</tr>';
+      
+      previewHeader.innerHTML = headerHtml;
+      
+      // 创建表体行（最多显示5行）
+      const previewData = data.slice(0, 5);
+      previewData.forEach(row => {
+        let rowHtml = '<tr>';
+        headers.forEach(header => {
+          rowHtml += `<td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${row[header] || ''}</td>`;
+        });
+        rowHtml += '</tr>';
+        
+        previewBody.innerHTML += rowHtml;
+      });
+      
+      // 显示预览
+      previewContainer.classList.remove('hidden');
+    }
+    
+    // 导出数据
+    function exportData() {
+      if (devices.length === 0) {
+        showToast('没有数据可导出', 'warning');
+        return;
+      }
+      
+      // 准备导出数据
+      const exportData = devices.map(device => {
+        const nextMaintenanceDate = new Date(device.nextMaintenanceDate);
+        const nextRentalDueDate = new Date(device.nextRentalDueDate);
+        
+        const maintenanceDaysLeft = Math.ceil((nextMaintenanceDate - new Date()) / (1000 * 60 * 60 * 24));
+        const rentalDaysLeft = Math.ceil((nextRentalDueDate - new Date()) / (1000 * 60 * 60 * 24));
+        
+        return {
+          '设备编号': device.deviceNumber,
+          '客户姓名': device.customerName,
+          '联系电话': device.contactPhone,
+          '安装详细地址': device.installationAddress,
+          '机器型号': device.machineModel,
+          '安装日期': formatDate(device.installationDate),
+          '首次维保完成日期': formatDate(device.firstMaintenanceDate),
+          '租金缴纳周期(月)': device.rentalPaymentCycle,
+          '租金下次到期日': formatDate(device.nextRentalDueDate),
+          '租金剩余天数': rentalDaysLeft,
+          '维保周期(月)': device.maintenanceCycle,
+          '下次维保日期': formatDate(device.nextMaintenanceDate),
+          '维保剩余天数': maintenanceDaysLeft,
+          '状态': device.status === 'expired' ? '已过期' : device.status === 'warning' ? '即将到期' : '正常',
+          '备注': device.notes || ''
+        };
+      });
+      
+      // 创建工作簿
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      // 添加工作表到工作簿
+      XLSX.utils.book_append_sheet(wb, ws, '设备信息');
+      
+      // 下载文件
+      const fileName = `设备信息导出_${formatDate(new Date(), 'YYYY-MM-DD')}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      showToast('导出成功');
+    }
+    
+    // 备份数据
+    function backupData() {
+      if (devices.length === 0) {
+        showToast('没有数据可备份', 'warning');
+        return;
+      }
+      
+      // 创建备份数据
+      const backupData = {
+        devices: devices,
+        lastUpdated: new Date().toISOString(),
+        version: '1.0'
+      };
+      
+      // 创建Blob对象
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      
+      // 创建下载链接
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `净水租赁系统备份_${formatDate(new Date(), 'YYYY-MM-DD_HH-mm-ss')}.json`;
+      
+      // 触发下载
+      document.body.appendChild(a);
+      a.click();
+      
+      // 清理
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 0);
+      
+      showToast('备份成功');
+    }
+    
+    // 显示设置
+    function showSettings() {
+      showModal({
+        title: '系统设置',
+        body: `
+          <div class="space-y-6">
+            <div>
+              <h4 class="font-medium mb-3">数据管理</h4>
+              <div class="space-y-3">
+                <button id="clearAllDataBtn" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                  <i class="fa fa-trash mr-2"></i> 清空所有数据
+                </button>
+                <button id="importBackupBtn" class="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                  <i class="fa fa-upload mr-2"></i> 导入备份
+                </button>
+                <input type="file" id="backupFileInput" accept=".json" class="hidden">
+              </div>
+            </div>
+            
+            <div>
+              <h4 class="font-medium mb-3">系统信息</h4>
+              <div class="space-y-2 text-sm text-gray-600">
+                <div class="flex justify-between">
+                  <span>系统版本:</span>
+                  <span>1.0.0</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>设备数量:</span>
+                  <span>${devices.length}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>最后更新:</span>
+                  <span>${devices.length > 0 ? formatDate(new Date(Math.max(...devices.map(d => new Date(d.updatedAt || d.createdAt))))) : '无'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `,
+        footer: `
+          <button id="closeSettingsBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+            关闭
+          </button>
+        `,
+        onShow: () => {
+          document.getElementById('closeSettingsBtn').addEventListener('click', closeModal);
+          
+          document.getElementById('clearAllDataBtn').addEventListener('click', () => {
+            showModal({
+              title: '确认清空',
+              body: `
+                <div class="text-center py-4">
+                  <i class="fa fa-exclamation-triangle text-4xl text-yellow-500 mb-3"></i>
+                  <p class="text-lg font-medium">确定要清空所有数据吗？</p>
+                  <p class="text-sm text-gray-600 mt-2">此操作不可撤销，所有设备信息、维保记录和缴费记录将被永久删除。</p>
+                </div>
+              `,
+              footer: `
+                <button id="cancelClearBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                  取消
+                </button>
+                <button id="confirmClearBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                  确认清空
+                </button>
+              `,
+              onShow: () => {
+                document.getElementById('cancelClearBtn').addEventListener('click', closeModal);
+                document.getElementById('confirmClearBtn').addEventListener('click', () => {
+                  // 清空数据
+                  devices = [];
+                  
+                  // 保存数据
+                  if (saveData()) {
+                    showToast('所有数据已清空');
+                    
+                    // 更新UI
+                    updateDeviceStats();
+                    renderDevicesList();
+                    renderHistoryFilters();
+                    renderTodayReminders();
+                    renderTodoList();
+                  } else {
+                    showToast('清空数据失败，请重试', 'error');
+                  }
+                  
+                  // 关闭所有模态框
+                  document.getElementById('modal').classList.add('hidden');
+                });
+              }
+            });
+          });
+          
+          document.getElementById('importBackupBtn').addEventListener('click', () => {
+            document.getElementById('backupFileInput').click();
+          });
+          
+          document.getElementById('backupFileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                const backupData = JSON.parse(e.target.result);
+                
+                // 验证备份数据
+                if (!backupData.devices || !Array.isArray(backupData.devices)) {
+                  showToast('无效的备份文件', 'error');
+                  return;
+                }
+                
+                // 确认导入
+                showModal({
+                  title: '确认导入',
+                  body: `
+                    <div class="text-center py-4">
+                      <i class="fa fa-info-circle text-4xl text-blue-500 mb-3"></i>
+                      <p class="text-lg font-medium">确定要导入备份吗？</p>
+                      <p class="text-sm text-gray-600 mt-2">当前数据将被替换，导入后将有 ${backupData.devices.length} 台设备。</p>
+                    </div>
+                  `,
+                  footer: `
+                    <button id="cancelImportBackupBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                      取消
+                    </button>
+                    <button id="confirmImportBackupBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                      确认导入
+                    </button>
+                  `,
+                  onShow: () => {
+                    document.getElementById('cancelImportBackupBtn').addEventListener('click', closeModal);
+                    document.getElementById('confirmImportBackupBtn').addEventListener('click', () => {
+                      // 导入数据
+                      devices = backupData.devices;
+                      
+                      // 转换日期字符串为Date对象
+                      devices.forEach(device => {
+                        device.installationDate = new Date(device.installationDate);
+                        device.firstMaintenanceDate = new Date(device.firstMaintenanceDate);
+                        device.nextRentalDueDate = new Date(device.nextRentalDueDate);
+                        device.nextMaintenanceDate = new Date(device.nextMaintenanceDate);
+                        device.createdAt = new Date(device.createdAt);
+                        device.updatedAt = new Date(device.updatedAt);
+                        
+                        // 转换维保记录日期
+                        if (device.maintenanceRecords) {
+                          device.maintenanceRecords.forEach(record => {
+                            record.maintenanceDate = new Date(record.maintenanceDate);
+                            record.createdAt = new Date(record.createdAt);
+                          });
+                        }
+                        
+                        // 转换缴费记录日期
+                        if (device.paymentRecords) {
+                          device.paymentRecords.forEach(record => {
+                            record.paymentDate = new Date(record.paymentDate);
+                            record.createdAt = new Date(record.createdAt);
+                          });
+                        }
+                      });
+                      
+                      // 更新设备状态
+                      updateDevicesStatus();
+                      
+                      // 保存数据
+                      if (saveData()) {
+                        showToast('备份导入成功');
+                        
+                        // 更新UI
+                        updateDeviceStats();
+                        renderDevicesList();
+                        renderHistoryFilters();
+                        renderTodayReminders();
+                        renderTodoList();
+                      } else {
+                        showToast('导入失败，请重试', 'error');
+                      }
+                      
+                      // 关闭所有模态框
+                      document.getElementById('modal').classList.add('hidden');
+                    });
+                  }
+                });
+              } catch (error) {
+                console.error('解析备份文件失败:', error);
+                showToast('解析备份文件失败，请检查文件格式', 'error');
+              }
+            };
+            
+            reader.readAsText(file);
+          });
+        }
+      });
+    }
+    
+    // 检查今日提醒
+    function checkTodayReminders() {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const tomorrow = new Date();
+      tomorrow.setDate(today.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      
+      const todayReminders = devices.filter(device => {
+        const nextMaintenanceDate = new Date(device.nextMaintenanceDate);
+        nextMaintenanceDate.setHours(0, 0, 0, 0);
+        
+        const nextRentalDueDate = new Date(device.nextRentalDueDate);
+        nextRentalDueDate.setHours(0, 0, 0, 0);
+        
+        return (nextMaintenanceDate >= today && nextMaintenanceDate < tomorrow) || 
+               (nextRentalDueDate >= today && nextRentalDueDate < tomorrow);
+      });
+      
+      if (todayReminders.length > 0) {
+        setTimeout(() => {
+          showModal({
+            title: '今日提醒',
+            body: `
+              <div class="space-y-4">
+                <p class="text-center">今天有 ${todayReminders.length} 项待办事项需要处理：</p>
+                <div class="space-y-3">
+                  ${todayReminders.map(device => {
+                    const nextMaintenanceDate = new Date(device.nextMaintenanceDate);
+                    nextMaintenanceDate.setHours(0, 0, 0, 0);
+                    
+                    const nextRentalDueDate = new Date(device.nextRentalDueDate);
+                    nextRentalDueDate.setHours(0, 0, 0, 0);
+                    
+                    const isMaintenanceToday = nextMaintenanceDate >= today && nextMaintenanceDate < tomorrow;
+                    const isRentalDueToday = nextRentalDueDate >= today && nextRentalDueDate < tomorrow;
+                    
+                    return `
+                      <div class="p-3 border border-gray-200 rounded-lg">
+                        <div class="font-medium">${device.deviceNumber} - ${device.customerName}</div>
+                        <div class="text-sm text-gray-600 mt-1">${device.installationAddress}</div>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                          ${isMaintenanceToday ? `
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <i class="fa fa-wrench mr-1"></i> 今日需维保
+                            </span>
+                          ` : ''}
+                          ${isRentalDueToday ? `
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <i class="fa fa-money mr-1"></i> 今日需收租
+                            </span>
+                          ` : ''}
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            `,
+            footer: `
+              <button id="viewTodayRemindersBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                查看详情
+              </button>
+              <button id="dismissRemindersBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                稍后处理
+              </button>
+            `,
+            onShow: () => {
+              document.getElementById('viewTodayRemindersBtn').addEventListener('click', () => {
+                closeModal();
+                showPage('homePage');
+              });
+              
+              document.getElementById('dismissRemindersBtn').addEventListener('click', closeModal);
+            }
+          });
+        }, 1000);
+      }
+    }
+    
+    // 显示提示消息
+    function showToast(message, type = 'success') {
+      // 创建提示元素
+      const toast = document.createElement('div');
+      toast.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 flex items-center ${
+        type === 'success' ? 'bg-green-500 text-white' : 
+        type === 'error' ? 'bg-red-500 text-white' : 
+        type === 'warning' ? 'bg-yellow-500 text-white' : 
+        'bg-blue-500 text-white'
+      }`;
+      
+      // 设置图标
+      const icon = document.createElement('i');
+      icon.className = `fa ${
+        type === 'success' ? 'fa-check-circle' : 
+        type === 'error' ? 'fa-times-circle' : 
+        type === 'warning' ? 'fa-exclamation-triangle' : 
+        'fa-info-circle'
+      } mr-2`;
+      
+      // 设置消息
+      const text = document.createElement('span');
+      text.textContent = message;
+      
+      // 组装提示
+      toast.appendChild(icon);
+      toast.appendChild(text);
+      
+      // 添加到页面
+      document.body.appendChild(toast);
+      
+      // 动画效果
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(-20px)';
+      toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      
+      setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+      }, 10);
+      
+      // 自动消失
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-20px)';
+        
+        setTimeout(() => {
+          document.body.removeChild(toast);
+        }, 300);
+      }, 3000);
+    }
+    
+    // 格式化日期
+    function formatDate(date, format = 'YYYY-MM-DD') {
+      if (!date) return '';
+      
+      const d = new Date(date);
+      
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const seconds = String(d.getSeconds()).padStart(2, '0');
+      
+      return format
+        .replace('YYYY', year)
+        .replace('MM', month)
+        .replace('DD', day)
+        .replace('HH', hours)
+        .replace('mm', minutes)
+        .replace('ss', seconds);
+    }
+    
+    // 截断文本
+    function truncateText(text, maxLength) {
+      if (!text) return '';
+      if (text.length <= maxLength) return text;
+      return text.substring(0, maxLength) + '...';
+    }
+  </script>
+</body>
+</html>
